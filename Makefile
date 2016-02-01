@@ -147,6 +147,9 @@ allupc:
 
 allpgas: allshmem allupc allmpirma
 
+alltasks:
+	cd OMPTASK/DGEMM;            $(MAKE) dgemm     "DEFAULT_OPT_FLAGS   = $(default_opt_flags)"
+
 allopenmp:
 	cd OPENMP/DGEMM;            $(MAKE) dgemm     "DEFAULT_OPT_FLAGS   = $(default_opt_flags)"
 	cd OPENMP/Nstream;          $(MAKE) nstream   "DEFAULT_OPT_FLAGS   = $(default_opt_flags)"
