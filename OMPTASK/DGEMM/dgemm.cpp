@@ -83,7 +83,7 @@ Stored blocks of B in transpose form, November 2007
 
 #define forder (1.0*order)
 
-main(int argc, char **argv){
+main(int argc, char **argv) {
 
     int     iterations;           /* number of times the multiplication is done     */
     double  dgemm_time,           /* timing parameters                              */
@@ -93,13 +93,8 @@ main(int argc, char **argv){
     double  epsilon = 1.e-8;      /* error tolerance                                */
     int     nthread_input,        /* thread parameters                              */
             nthread;   
-    int     num_error=0;          /* flag that signals that requested and 
-                                     obtained numbers of threads are the same       */
-    static  
-        double *A, *B, *C;            /* input (A,B) and output (C) matrices            */
     long    order;                /* number of rows and columns of matrices         */
     int     block;                /* tile size of matrices                          */
-    int     shortcut;             /* true if only doing initialization              */
 
     printf("Parallel Research Kernels version %s\n", PRKVERSION);
     printf("OpenMP Dense matrix-matrix multiplication\n");
@@ -125,12 +120,6 @@ main(int argc, char **argv){
     }
 
     order = atol(*++argv);
-    if (order < 0) {
-        shortcut = 1;
-        order    = -order;
-    } else {
-        shortcut = 0;
-    }
     if (order < 1) {
         printf("ERROR: Matrix order must be positive: %ld\n", order);
         exit(EXIT_FAILURE);
@@ -140,79 +129,47 @@ main(int argc, char **argv){
         block = atoi(*++argv);
     } else block = DEFAULTBLOCK;
 
-    A = (double *) malloc(order*order*sizeof(double));
-    B = (double *) malloc(order*order*sizeof(double));
-    C = (double *) malloc(order*order*sizeof(double));
-    if (!A || !B || !C) {
+    double *A1 = new double[order*order];
+    double *B1 = new double[order*order];
+    double *C1 = new double[order*order];
+
+    double *A2 = new double[order*order];
+    double *B2 = new double[order*order];
+    double *C2 = new double[order*order];
+    if (!A1 || !B1 || !C1 || !A2 || !B2 || !C2) {
         printf("ERROR: Could not allocate space for global matrices\n");
         exit(EXIT_FAILURE);
     }
 
-    ref_checksum = (0.25*forder*forder*forder*(forder-1.0)*(forder-1.0));
+    double *A = A1, *B = B1, *C = C1;
+    double *A_next = A2, *B_next = B2, *C_next = C2;
 
-#pragma omp parallel for 
-    for(int j = 0; j < order; j++) {
-        for(int i = 0; i < order; i++) {
-            A_arr(i,j) = (double) j;
-            B_arr(i,j) = (double) j; 
-            C_arr(i,j) = 0.0;
-        }
-    }
+    ref_checksum = (0.25*forder*forder*forder*(forder-1.0)*(forder-1.0));
 
 #pragma omp parallel
     {
-        double *AA, *BB, *CC;
-
-        if (block > 0) {
-            // matrix blocks for local temporary copies
-            AA = (double *) malloc(block*(block+BOFFSET)*3*sizeof(double));
-            if (!AA) {
-                num_error = 1;
-                printf("Could not allocate space for matrix tiles on thread %d\n", 
-                        omp_get_thread_num());
+#pragma omp for 
+        for(int j = 0; j < order; j++) {
+            for(int i = 0; i < order; i++) {
+                A_arr(i,j) = (double) j;
+                B_arr(i,j) = (double) j; 
+                C_arr(i,j) = 0.0;
             }
-            bail_out(num_error);
-            BB = AA + block*(block+BOFFSET);
-            CC = BB + block*(block+BOFFSET);
-        } 
+        }
 #pragma omp master 
         {
             nthread = omp_get_num_threads();
+            printf("Matrix order                = %ld\n", order);
+            printf("Number of threads requested = %d\n", nthread_input);
+            printf("Number of threads received  = %d\n", nthread);
+            printf("Blocking factor             = %d\n", block);
+            printf("Number of iterations        = %d\n", iterations);
 
-            if (nthread != nthread_input) {
-                num_error = 1;
-                printf("ERROR: number of requested threads %d does not equal ", nthread_input);
-                printf("number of spawned threads %d\n", nthread);
-            } 
-            else {
-                printf("Matrix order          = %ld\n", order);
-                printf("Number of threads     = %d\n", nthread_input);
-                if (block>0) {
-                    printf("Blocking factor       = %d\n", block);
-                } else {
-                    printf("No blocking\n");
-                }
-                printf("Number of iterations  = %d\n", iterations);
-                if (shortcut) {
-                    printf("Only doing initialization\n"); 
-                }
-            }
-        }
-        bail_out(num_error); 
-
-        if (shortcut) exit(EXIT_SUCCESS);
-
-        for (int iter=0; iter<=iterations; iter++) {
-            if (iter==1) {
-#pragma omp barrier
-#pragma omp master
-                {
+            for (int iter=0; iter<=iterations; iter++) {
+                if (iter==1) {
                     printf("starting timer\n");
                     dgemm_time = wtime();
                 }
-            }
-            if (block > 0) {
-//#pragma omp for 
                 for(int jj = 0; jj < order; jj+=block) {
                     for(int kk = 0; kk < order; kk+=block) {
 #pragma omp task depend(out: BB_arr(jj,kk))
@@ -242,7 +199,7 @@ main(int argc, char **argv){
                                     }
                                 }
                             }
-#pragma omp task depend(out: C_arr(ii,jj)) depend( CC_arr(0,0)) 
+#pragma omp task depend(out: C_arr(ii,jj)) depend(in: CC_arr(0,0)) 
                             for (int jg=jj,j=0; jg<MIN(jj+block,order); j++,jg++) {
                                 for (int ig=ii,i=0; ig<MIN(ii+block,order); i++,ig++) {
                                     C_arr(ig,jg) += CC_arr(i,j);
@@ -251,7 +208,8 @@ main(int argc, char **argv){
                         }
                     }  
                 }
-            } else {
+#pragma omp taskwait
+/*
 #pragma omp for 
                 for (int jg=0; jg<order; jg++) {
                     for (int kg=0; kg<order; kg++) {
@@ -260,14 +218,10 @@ main(int argc, char **argv){
                         }
                     }
                 }
-            }
-        } // end of iterations
-#pragma omp barrier
-#pragma omp master
-        {
+*/
+            } // end of iterations
             dgemm_time = wtime() - dgemm_time;
-        }
-
+        }//end of Master
     } // end of parallel region
 
     checksum = 0.0;
@@ -296,6 +250,6 @@ main(int argc, char **argv){
     avgtime = dgemm_time/iterations;
     printf("Rate (MFlops/s): %lf  Avg time (s): %lf\n", 1.0E-06 *nflops/avgtime, avgtime);
 
-    exit(EXIT_SUCCESS);
-
+    //exit(EXIT_SUCCESS);
+    return 0;
 }
