@@ -153,11 +153,10 @@ main(int argc, char **argv) {
 #pragma omp master 
         {
             nthread = omp_get_num_threads();
-            printf("Matrix order                = %ld\n", order);
-            printf("Number of threads requested = %d\n", nthread_input);
-            printf("Number of threads received  = %d\n", nthread);
-            printf("Blocking factor             = %d\n", block);
-            printf("Number of iterations        = %d\n", iterations);
+            printf("Matrix order         = %ld\n", order);
+            printf("Number of threads    = %d\n", nthread);
+            printf("Blocking factor      = %d\n", block);
+            printf("Number of iterations = %d\n", iterations);
 
             for (int iter=0; iter<=iterations; iter++) {
                 if (iter==1) {
@@ -167,24 +166,23 @@ main(int argc, char **argv) {
                 for(int jj = 0; jj < order; jj+=block) {
                     for(int kk = 0; kk < order; kk+=block) {
                         for(int ii = 0; ii < order; ii+=block) {
-#pragma omp task depend(inout: C_arr(ii, jj))
+#pragma omp task depend(inout: C_arr(ii, jj)) firstprivate(ii, jj, kk)
                             {
                                 for (int j=jj; j<MIN(jj+block,order); j++) {
                                     for (int i=ii; i<MIN(ii+block,order); i++) {
                                         tempC_arr(i,j) = 0.0;
                                     }
                                 }
-                                for (int kg=kk; kg<MIN(kk+block,order); kg++) {
-                                    for (int jg=jj; jg<MIN(jj+block,order); jg++)  {
-                                        for (int ig=ii; ig<MIN(ii+block,order); ig++) {
-                                            tempC_arr(ig,jg) += A_arr(ig,kg)*B_arr(jg,kg);
+                                for (int k=kk; k<MIN(kk+block,order); k++) {
+                                    for (int j=jj; j<MIN(jj+block,order); j++)  {
+                                        for (int i=ii; i<MIN(ii+block,order); i++) {
+                                            tempC_arr(i,j) += A_arr(i,k)*B_arr(k,j);
                                         }
                                     }
                                 }
-//#pragma omp task depend(out: C_arr(ii,jj)) depend(in: CC_arr(0,0)) 
-                                for (int jg=jj,j=0; jg<MIN(jj+block,order); j++,jg++) {
-                                    for (int ig=ii,i=0; ig<MIN(ii+block,order); i++,ig++) {
-                                        C_arr(ig,jg) += tempC_arr(i,j);
+                                for (int j=jj; j<MIN(jj+block,order); j++) {
+                                    for (int i=ii; i<MIN(ii+block,order); i++) {
+                                        C_arr(i,j) += tempC_arr(i,j);
                                     }
                                 }
                             }
@@ -194,6 +192,7 @@ main(int argc, char **argv) {
             } // end of iterations
 #pragma omp taskwait
             dgemm_time = wtime() - dgemm_time;
+            printf("timer stopped\n");
         }//end of Master
     } // end of parallel region
 
