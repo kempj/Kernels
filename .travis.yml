@@ -36,10 +36,12 @@ matrix:
       env: PRK_TARGET=allupc
            UPC_IMPL=bupc
            GASNET_CONDUIT=udp
+           PRK_FLAGS="-Wc,-O3"
     - os: osx
       env: PRK_TARGET=allupc
            UPC_IMPL=bupc
            GASNET_CONDUIT=smp
+           PRK_FLAGS="-Wc,-O3"
     # Mac issue with thread_t (see https://github.com/humairakamal/fgmpi/pull/1)
     - os: osx
       env: PRK_TARGET=allfgmpi
@@ -57,22 +59,33 @@ matrix:
     - env: PRK_TARGET=allupc
            UPC_IMPL=bupc
            GASNET_CONDUIT=ofi
-    # probably because of old GCC (4.6)
-    - os: linux
-      compiler: gcc
-      env: PRK_TARGET=allhpx5
-  allow_failures:
-    - env: PRK_TARGET=allgrappa
+           PRK_FLAGS="-Wc,-O3"
     # UPC over MPICH on Mac hangs - may be async progress issue
     - os: osx
       env: PRK_TARGET=allupc
            UPC_IMPL=bupc
            GASNET_CONDUIT=mpi
+           PRK_FLAGS="-Wc,-O3"
+    # probably because of old GCC (4.6)
+    - os: linux
+      compiler: gcc
+      env: PRK_TARGET=allhpx5
+    # Travis whitelist missing three Boost packages HPX-3 needs
+    - os: linux
+      env: PRK_TARGET=allhpx3
+    # LLVM Fortran is not ready.
+    - compiler: clang
+      env: PRK_TARGET=allfortran
+  allow_failures:
+    - env: PRK_TARGET=allgrappa
+    # wget tarball fails right now
+    - os: linux
+      env: PRK_TARGET=allfgmpi
 addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
-    #  Boost is for Grappa
+    #  Boost is for Grappa and HPX
     #- boost-latest
     # clang-3.8 comes from this
     #- llvm-toolchain-precise
@@ -80,9 +93,17 @@ addons:
     - cmake
     - gcc-4.8
     - g++-4.8
+    - gfortran-4.8
+    - gcc-4.9
+    - g++-4.9
+    - gfortran-4.9
+    - gcc-5
+    - g++-5
+    - gfortran-5
     # Required by GUPC
     - libnuma-dev
-    # Boost is for Grappa
+    # Boost is for Grappa and HPX-3 - reactivate with them
+    # Grappa needs these (according to their .travis.yml)
     #- libboost-date-time1.55-dev
     #- libboost-exception1.55-dev
     #- libboost-filesystem1.55-dev
@@ -95,43 +116,59 @@ addons:
     #- libboost-system1.55-dev
     #- libboost-test1.55-dev
     #- libboost-timer1.55-dev
+    # HPX-3 needs these - not whitelisted yet
+    #- libboost_chrono1.55-dev
+    #- libboost_program_options1.55-dev
+    #- libboost_thread1.55-dev
     # This should provide OpenMP
     #- clang-3.8
 env:
-# Order by likelihood of failing...
-# HPX-5 kernels are not merged yet.  Activate these when they are.
-  - PRK_TARGET=allhpx5
-# Chapel kernels are not merged yet.  Activate these when they are.
-  - PRK_TARGET=allchapel
-    CHPL_COMM=none
-  - PRK_TARGET=allchapel
-    CHPL_COMM=gasnet
-# Grappa is a problem.  No reason to test it every time.
-#  - PRK_TARGET=allgrappa
-  - PRK_TARGET=allupc
-    UPC_IMPL=bupc
-    GASNET_CONDUIT=mpi
-  - PRK_TARGET=allupc
-    UPC_IMPL=bupc
-    GASNET_CONDUIT=ofi
-  - PRK_TARGET=allupc
-    UPC_IMPL=bupc
-    GASNET_CONDUIT=smp
-  - PRK_TARGET=allupc
-    UPC_IMPL=bupc
-    GASNET_CONDUIT=udp
-  - PRK_TARGET=allupc
-    UPC_IMPL=gupc
-  - PRK_TARGET=allampi
-  - PRK_TARGET=allcharm++
-  - PRK_TARGET=allfgmpi
+#
+# VIM cheatsheet
+#  * comment out lines m to n by prepending #
+#    :m,n s/^/#/g
+#
+  - PRK_TARGET=allserial
+  - PRK_TARGET=allfortran
+  - PRK_TARGET=allopenmp
+  - PRK_TARGET=allmpi1
   - PRK_TARGET=allshmem
   - PRK_TARGET=allmpirma
   - PRK_TARGET=allmpishm
   - PRK_TARGET=allmpiomp
-  - PRK_TARGET=allmpi1
-  - PRK_TARGET=allopenmp
-  - PRK_TARGET=allserial
+  - PRK_TARGET=allupc
+    UPC_IMPL=gupc
+  - PRK_TARGET=allupc
+    UPC_IMPL=bupc
+    GASNET_CONDUIT=smp
+    PRK_FLAGS="-Wc,-O3"
+  - PRK_TARGET=allupc
+    UPC_IMPL=bupc
+    GASNET_CONDUIT=udp
+    PRK_FLAGS="-Wc,-O3"
+# We do not need to test BUPC this thoroughly every time
+#  - PRK_TARGET=allupc
+#    UPC_IMPL=bupc
+#    GASNET_CONDUIT=mpi
+#    PRK_FLAGS="-Wc,-O3"
+#  - PRK_TARGET=allupc
+#    UPC_IMPL=bupc
+#    GASNET_CONDUIT=ofi
+#    PRK_FLAGS="-Wc,-O3"
+  - PRK_TARGET=allampi
+  - PRK_TARGET=allcharm++
+  - PRK_TARGET=allfgmpi
+## Chapel kernels are not merged yet.  Activate these when they are.
+##  - PRK_TARGET=allchapel
+##    CHPL_COMM=none
+##  - PRK_TARGET=allchapel
+##    CHPL_COMM=gasnet
+## HPX-3 kernels are not merged yet.  Activate these when they are.
+##  - PRK_TARGET=allhpx3
+## HPX-5 kernels are not merged yet.  Activate these when they are.
+##  - PRK_TARGET=allhpx5
+## Grappa is a problem.  No reason to test it every time.
+##  - PRK_TARGET=allgrappa
 before_install:
   - pwd
   - export TRAVIS_HOME=$PWD
