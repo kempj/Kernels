@@ -247,6 +247,7 @@ int main(int argc, char **argv){
                 vector[row] += (double) (row+1);
             }
             // do the actual matrix-vector multiplication 
+            // TODO: This is where the tasks need to be created.
 #pragma omp for
             for (int64_t row=0; row<grid_size; row++) {
                 //int64_t first = stencil_size * row; 
@@ -254,6 +255,7 @@ int main(int argc, char **argv){
 //#pragma simd reduction(+:temp) 
                     //for (temp=0.0, col=first; col<=last; col++) { temp += matrix[col]*vector[colIndex[col]];
                     //the number of entries in each row in a real sparse MV mult wouldn't be known.
+                    //TODO: change this to have a variable number of entries per row.
                     for (int64_t col=0; col<stencil_size; col++) {
                         result[row] += matrix[col + stencil_size*row] * vector[colIndex[col + stencil_size*row]];
                     }
