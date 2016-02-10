@@ -14,7 +14,7 @@ OPTFLAGS    = $(DEFAULT_OPT_FLAGS)
 #DEBUGFLAG    = -DVERBOSE
 #description: default diagnostic style is silent
 
-SCRAMBLEFLAG = -DSCRAMBLE
+#SCRAMBLEFLAG = -DSCRAMBLE
 #description: if flag is set, grid indices are scrambled to produce irregular stride
 
 #NTHREADFLAG  = -DMAXTHREADS=n

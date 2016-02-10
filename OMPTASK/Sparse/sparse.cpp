@@ -208,15 +208,21 @@ int main(int argc, char **argv){
 
 #pragma omp for
         for (int row=0; row<grid_size; row++) {
-            int j = row/size; 
-            int i = row%size;
-            int elm = row*stencil_size;
-            colIndex[elm] = REVERSE(LIN(i,j),log_size);
+            int64_t j = row/size; 
+            int64_t i = row%size;
+            int64_t elm = row*stencil_size;
+            //colIndex[elm] = REVERSE(LIN(i,j),log_size);
+            colIndex[elm] = i+j*size;
             for (int r=1; r<=radius; r++, elm+=4) {
-                colIndex[elm+1] = REVERSE(LIN((i+r     )%size, j             ),log_size);
-                colIndex[elm+2] = REVERSE(LIN((i-r+size)%size, j             ),log_size);
-                colIndex[elm+3] = REVERSE(LIN( i             ,(j+r)%size     ),log_size);
-                colIndex[elm+4] = REVERSE(LIN( i             ,(j-r+size)%size),log_size);
+                //colIndex[elm+1] = REVERSE(LIN((i+r     )%size, j             ),log_size);
+                //colIndex[elm+2] = REVERSE(LIN((i-r+size)%size, j             ),log_size);
+                //colIndex[elm+3] = REVERSE(LIN( i             ,(j+r)%size     ),log_size);
+                //colIndex[elm+4] = REVERSE(LIN( i             ,(j-r+size)%size),log_size);
+                
+                colIndex[elm+1] = (i+r     )%size + j                *size;
+                colIndex[elm+2] = (i-r+size)%size + j                *size;
+                colIndex[elm+3] =  i              + ((j+r     )%size)*size;
+                colIndex[elm+4] =  i              + ((j-r+size)%size)*size;
             }
             /* sort colIndex to make sure the compressed row accesses
                vector elements in increasing order                                         */
@@ -235,7 +241,7 @@ int main(int argc, char **argv){
                     sparse_time = wtime();
                 }
             }
-            // fill vector
+            // fill vector - Why is populating vector in the timed part?
 #pragma omp for 
             for (int row=0; row<grid_size; row++) {
                 vector[row] += (double) (row+1);
@@ -243,15 +249,15 @@ int main(int argc, char **argv){
             // do the actual matrix-vector multiplication 
 #pragma omp for
             for (int64_t row=0; row<grid_size; row++) {
-                int64_t first = stencil_size*row; 
-                int64_t last  = first+stencil_size-1;
-                    int64_t col;
-                    double temp;
-#pragma simd reduction(+:temp) 
-                    for (temp=0.0,  col=first; col<=last; col++) {
-                        temp += matrix[col]*vector[colIndex[col]];
+                //int64_t first = stencil_size * row; 
+                //int64_t last  = first + stencil_size-1;
+//#pragma simd reduction(+:temp) 
+                    //for (temp=0.0, col=first; col<=last; col++) { temp += matrix[col]*vector[colIndex[col]];
+                    //the number of entries in each row in a real sparse MV mult wouldn't be known.
+                    for (int64_t col=0; col<stencil_size; col++) {
+                        result[row] += matrix[col + stencil_size*row] * vector[colIndex[col + stencil_size*row]];
                     }
-                    result[row] += temp;
+                    //result[row] += temp;
                 }
             } /* end of iterations                                                          */
 
